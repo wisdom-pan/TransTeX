@@ -32,10 +32,10 @@ __pycache__/
 venv/
 
 # --- Node / Next.js ---
-dochero-ai/node_modules/
-dochero-ai/.next/
-dochero-ai/tsconfig.tsbuildinfo
-dochero-ai/next-env.d.ts
+transtex-web/node_modules/
+transtex-web/.next/
+transtex-web/tsconfig.tsbuildinfo
+transtex-web/next-env.d.ts
 node_modules/
 
 # --- 密钥 / 本地配置(切勿上传) ---
