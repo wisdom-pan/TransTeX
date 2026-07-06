@@ -8,7 +8,7 @@ __pycache__/
 venv/
 
 # 前端(有独立构建上下文)
-dochero-ai/
+transtex-web/
 
 # 运行产物 / 大目录
 textrans_workdir/
