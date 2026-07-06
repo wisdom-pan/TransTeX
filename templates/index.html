@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>arXiv论文翻译系统</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .progress-container {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .progress-container.active {
+            display: block;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .percentage {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .message {
+            color: #666;
+            font-size: 14px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .file-progress {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .download-btn {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .download-btn.active {
+            display: block;
+        }
+
+        .download-btn a {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        .download-btn a:hover {
+            background: #45a049;
+        }
+
+        .error {
+            color: #f44336;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📝 arXiv论文翻译</h1>
+        <p class="subtitle">输入arXiv链接，自动下载、翻译并生成中文PDF</p>
+
+        <div class="input-group">
+            <label for="arxiv-url">arXiv链接</label>
+            <input type="text" id="arxiv-url" placeholder="https://arxiv.org/abs/2401.12345">
+        </div>
+
+        <button class="btn" id="translate-btn" onclick="startTranslation()">
+            开始翻译
+        </button>
+
+        <div class="progress-container" id="progress-container">
+            <div class="progress-info">
+                <span class="status" id="status">准备中...</span>
+                <span class="percentage" id="percentage">0%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="message" id="message">等待开始...</div>
+            <div class="file-progress" id="file-progress"></div>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="download-btn" id="download-btn">
+            <a href="#" id="download-link" download>📥 下载翻译后的PDF</a>
+        </div>
+    </div>
+
+    <script>
+        let socket = io();
+        let currentTaskId = null;
+
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+
+        socket.on('progress', function(data) {
+            if (data.task_id === currentTaskId) {
+                updateProgress(data);
+            }
+        });
+
+        async function startTranslation() {
+            const url = document.getElementById('arxiv-url').value.trim();
+            if (!url) {
+                alert('请输入arXiv链接');
+                return;
+            }
+
+            const btn = document.getElementById('translate-btn');
+            btn.disabled = true;
+            btn.textContent = '处理中...';
+
+            document.getElementById('progress-container').classList.add('active');
+            document.getElementById('error').classList.remove('active');
+            document.getElementById('download-btn').classList.remove('active');
+
+            try {
+                const response = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ arxiv_url: url })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                currentTaskId = data.task_id;
+
+            } catch (error) {
+                showError(error.message);
+                resetButton();
+            }
+        }
+
+        function updateProgress(data) {
+            const progressFill = document.getElementById('progress-fill');
+            const status = document.getElementById('status');
+            const percentage = document.getElementById('percentage');
+            const message = document.getElementById('message');
+            const fileProgress = document.getElementById('file-progress');
+
+            progressFill.style.width = data.progress + '%';
+            status.textContent = getStatusText(data.status);
+            percentage.textContent = data.progress + '%';
+            message.textContent = data.message;
+
+            if (data.files_total && data.files_completed !== undefined) {
+                fileProgress.textContent = `文件进度: ${data.files_completed}/${data.files_total}`;
+            }
+
+            if (data.status === 'completed') {
+                resetButton();
+                document.getElementById('download-btn').classList.add('active');
+                document.getElementById('download-link').href = data.pdf_url;
+            } else if (data.status === 'failed') {
+                showError(data.message);
+                resetButton();
+            }
+        }
+
+        function getStatusText(status) {
+            const statusMap = {
+                'pending': '等待中',
+                'downloading': '下载中',
+                'parsing': '解析中',
+                'translating': '翻译中',
+                'compiling': '编译中',
+                'watermarking': '添加水印',
+                'completed': '完成',
+                'failed': '失败'
+            };
+            return statusMap[status] || status;
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('error');
+            errorEl.textContent = message;
+            errorEl.classList.add('active');
+        }
+
+        function resetButton() {
+            const btn = document.getElementById('translate-btn');
+            btn.disabled = false;
+            btn.textContent = '开始翻译';
+        }
+    </script>
+</body>
+</html>
