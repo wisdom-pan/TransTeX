@@ -1,0 +1,37 @@
+# TexTrans 后端镜像:FastAPI + 完整 TeXLive + 中文字体
+# 分层顺序讲究:重依赖(TeXLive)在前,代码在后,改代码不触发重装。
+FROM python:3.12-slim
+
+# LaTeX 全家桶 + Noto CJK 字体 + pdfinfo(poppler)+ fontconfig
+# texlive-full 很大(~5GB),但编译兼容性最好;单独成层利用缓存。
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        texlive-full \
+        latexmk \
+        fonts-noto-cjk \
+        fonts-noto-cjk-extra \
+        poppler-utils \
+        fontconfig \
+    && fc-cache -f \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# 先装 Python 依赖(单独成层)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 再拷代码
+COPY textrans/ ./textrans/
+COPY textrans_api/ ./textrans_api/
+
+# 工作目录(compose 里挂载卷到此,产物持久化)
+ENV TEXTRANS_WORKDIR=/data/workdir \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+# 健康检查:FastAPI /api/health
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python3 -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health').status==200 else 1)" || exit 1
+
+CMD ["uvicorn", "textrans_api.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,15 @@
+# --- 翻译内核 ---
+requests>=2.31.0
+tqdm>=4.66.0
+pypdf>=3.17.0
+reportlab>=4.0.0
+Pillow>=10.0.0
+openai>=1.0.0
+numpy>=1.24.0
+tiktoken>=0.5.0
+
+# --- FastAPI 后端 ---
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+websockets>=12.0

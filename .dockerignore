@@ -1,0 +1,35 @@
+# 后端镜像构建上下文排除项
+.git
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 前端(有独立构建上下文)
+dochero-ai/
+
+# 运行产物 / 大目录
+textrans_workdir/
+data/
+arxiv_translations/
+generate/
+generate1/
+generate2/
+generate4/
+
+# 参考/归档(不进镜像)
+gpt_academic/
+legacy/
+
+# 杂项
+.DS_Store
+*.log
+*.aux
+*.out
+*.toc
+*.bbl
+*.blg
+*_latex.pdf
+.claude/

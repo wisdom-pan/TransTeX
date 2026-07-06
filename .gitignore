@@ -1,0 +1,48 @@
+# --- gpt_academic 是 GPL v3,仅本地参考,不进发布 ---
+gpt_academic/
+
+# --- 旧脚本归档(被 textrans/ + textrans_api/ 取代) ---
+legacy/
+
+# --- 运行产物 / 工作目录 ---
+textrans_workdir/
+arxiv_translations/
+data/
+generate/
+generate1/
+generate2/
+generate4/
+*.tar.gz
+
+# --- LaTeX 编译中间产物 ---
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+*_latex.pdf
+*.tex.orig
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- Node / Next.js ---
+dochero-ai/node_modules/
+dochero-ai/.next/
+dochero-ai/tsconfig.tsbuildinfo
+dochero-ai/next-env.d.ts
+node_modules/
+
+# --- 密钥 / 本地配置(切勿上传) ---
+.env
+.claude/
+
+# --- 杂项 ---
+.DS_Store
+generated_infographic.png
+dt.l.png
