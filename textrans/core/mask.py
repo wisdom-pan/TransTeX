@@ -220,6 +220,19 @@ _FLOAT_ENVS = [
 # 代码 / 逐字环境(整段保护)
 _CODE_ENVS = ["lstlisting", "verbatim", "minted", "Verbatim", "algorithm", "algorithmic"]
 
+# 作者 / 署名环境(整段保护:人名、机构名不翻译)。
+# 覆盖常见会议模板:ICML(icmlauthorlist)、通用 authors/authorlist 等。
+_AUTHOR_ENVS = [
+    "icmlauthorlist", "authorlist", "authors", "author", "authblk",
+]
+# 作者 / 署名 / 邮箱类命令(命令 + 花括号整体保护)。
+_AUTHOR_CMDS = [
+    r"\\author", r"\\icmlauthor", r"\\icmlcorrespondingauthor",
+    r"\\icmlaffiliation", r"\\icmlsetsymbol",
+    r"\\affiliation", r"\\affil", r"\\address", r"\\email",
+    r"\\thanks", r"\\inst", r"\\institute",
+]
+
 # 需要翻译内部文本的命令(框架保护、内容翻译)
 # 分两组:元信息命令在 preamble 也要翻译;格式命令仅在正文 body 内翻译
 # (避免把 \newcommand 定义里的 \textbf{...} 模板文本当正文翻译)
@@ -313,6 +326,12 @@ def apply_default_rules(text: str) -> np.ndarray:
     preserve_env(text, mask, _MATH_ENVS)
     preserve_env(text, mask, _FLOAT_ENVS)
     preserve_env(text, mask, _CODE_ENVS)
+
+    # 3b) 作者 / 署名区(人名、机构、邮箱不翻译)。放在 reverse 之前,
+    #     且用 careful_brace 覆盖 \begin{document} 之后出现的作者命令/环境。
+    preserve_env(text, mask, _AUTHOR_ENVS)
+    for cmd in _AUTHOR_CMDS:
+        preserve_careful_brace(text, mask, cmd)
 
     # 4) 参考文献与引用类命令(整行 / 整块保护)
     preserve(text, mask, r"\\begin\{thebibliography\}.*?\\end\{thebibliography\}", re.DOTALL)

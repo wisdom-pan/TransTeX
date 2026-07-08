@@ -1,13 +1,14 @@
 {
   "name": "transtex-web",
   "version": "1.0.0",
-  "description": "译如原 — 译文如原版，排版无损的 LaTeX 论文翻译前端",
+  "description": "直接翻译 — 译文如原版，排版无损的 LaTeX 论文翻译前端",
   "main": "index.js",
   "scripts": {
     "dev": "next dev -p 5000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/pdf.worker.min.mjs"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +21,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.576.0",
     "next": "^16.1.6",
+    "pdfjs-dist": "^4.10.38",
     "postcss": "^8.5.8",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

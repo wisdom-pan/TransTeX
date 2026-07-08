@@ -42,8 +42,24 @@ _DEFAULT_PROVIDERS: dict[str, ProviderConfig] = {
 }
 
 
-# 默认水印图片:项目根目录下的 dt.l.png(textrans/ 的上一级)
-_DEFAULT_WATERMARK = Path(__file__).resolve().parent.parent / "dt.l.png"
+# 项目根目录(textrans/ 的上一级)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# 默认水印图片:项目根目录下的 dt.l.png
+_DEFAULT_WATERMARK = _PROJECT_ROOT / "dt.l.png"
+
+
+def _default_workdir() -> Path:
+    r"""默认工作目录(绝对路径)。
+
+    绝对化很重要:后端可能从任意目录启动(uvicorn/systemd/docker),
+    若用相对路径 ./textrans_workdir,则不同 CWD 会指向不同目录,
+    导致数据库/历史记录"看起来丢了"。故锁定到项目根下的绝对路径。
+    环境变量 TEXTRANS_WORKDIR 若为相对路径也解析为绝对。
+    """
+    raw = os.getenv("TEXTRANS_WORKDIR")
+    if raw:
+        return Path(raw).expanduser().resolve()
+    return _PROJECT_ROOT / "textrans_workdir"
 
 
 @dataclass
@@ -52,7 +68,7 @@ class Config:
     providers: dict[str, ProviderConfig] = field(
         default_factory=lambda: {k: ProviderConfig(**vars(v)) for k, v in _DEFAULT_PROVIDERS.items()}
     )
-    workdir: Path = Path(os.getenv("TEXTRANS_WORKDIR", "./textrans_workdir"))
+    workdir: Path = field(default_factory=_default_workdir)
     watermark_path: Path = _DEFAULT_WATERMARK
 
     def provider(self, name: Optional[str] = None) -> ProviderConfig:
@@ -81,8 +97,24 @@ def _apply_env(cfg: Config) -> None:
     openai_cfg.base_url = os.getenv("OPENAI_BASE_URL", openai_cfg.base_url)
 
 
+def _load_dotenv() -> None:
+    """加载项目根目录的 .env 到 os.environ(不覆盖已存在的真实环境变量)。
+
+    代码只读 os.getenv,若不主动加载 .env,则文件中的 KIMI_API_KEY 等
+    不会生效,导致请求带空密钥 → 401 unauthorized。python-dotenv 缺失时静默跳过。
+    """
+    try:
+        from dotenv import load_dotenv
+    except ModuleNotFoundError:  # pragma: no cover
+        return
+    # config.py 在 textrans/ 下,.env 在其上一级项目根目录
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    load_dotenv(env_path, override=False)
+
+
 def load_config(path: Optional[Path] = None) -> Config:
     """加载配置。若存在 config.toml 则合并。"""
+    _load_dotenv()
     cfg = Config()
 
     toml_path = path or Path("config.toml")

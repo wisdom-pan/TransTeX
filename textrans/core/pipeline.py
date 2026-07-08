@@ -26,6 +26,7 @@ class TranslateResult:
     workdir: Path
     translated_pdf: Optional[Path] = None
     bilingual_pdf: Optional[Path] = None
+    original_pdf: Optional[Path] = None
     main_tex: Optional[Path] = None
     title: Optional[str] = None
     stats: SegmentStats = field(default_factory=SegmentStats)
@@ -150,10 +151,11 @@ class Pipeline:
 
         # 6) 中英对照
         bilingual_pdf = None
+        original_pdf = None
         if self.tconf.make_bilingual:
             self._emit(Stage.BILINGUAL, "生成中英对照 PDF")
             main_rel = str(main_tex.relative_to(source_dir))
-            bilingual_pdf = self._make_bilingual(
+            bilingual_pdf, original_pdf = self._make_bilingual(
                 source, base, source_dir, main_rel, translated_pdf, out_dir
             )
 
@@ -166,8 +168,9 @@ class Pipeline:
         orig_main = main_tex.with_suffix(main_tex.suffix + ".orig")
         title = arxiv.extract_title(orig_main if orig_main.exists() else main_tex)
         return TranslateResult(
-            ok=True, workdir=base, translated_pdf=translated_pdf,
-            bilingual_pdf=bilingual_pdf, main_tex=main_tex, title=title, stats=stats,
+            ok=True, translated_pdf=translated_pdf,
+            bilingual_pdf=bilingual_pdf, original_pdf=original_pdf,
+            workdir=base, main_tex=main_tex, title=title, stats=stats,
             message="成功",
         )
 
@@ -257,9 +260,11 @@ class Pipeline:
             buggy = sorted(set(buggy) | set(new_buggy))
         return None
 
-    def _make_bilingual(self, source, base, source_dir, main_rel, translated_pdf, out_dir) -> Optional[Path]:
+    def _make_bilingual(self, source, base, source_dir, main_rel, translated_pdf, out_dir):
         """编译原文 PDF 并与译文拼接成对照 PDF。
 
+        返回 (bilingual_pdf, original_pdf);任一失败则对应项为 None。
+        原文 PDF 也单独复制到 output/,供前端做中英并排预览。
         原文来自翻译时保留的 .orig 边车副本(适用于 arXiv 与本地/上传源),
         复制整个源目录到 orig_build/,把每个 .tex.orig 还原为 .tex 后编译。
         """
@@ -280,14 +285,14 @@ class Pipeline:
                 restored += 1
             if restored == 0:
                 self._log("⚠️ 无 .orig 原文副本,跳过对照 PDF")
-                return None
+                return None, None
 
             orig_main = orig_build / main_rel
             if not orig_main.exists():
                 orig_main = arxiv.find_main_tex(orig_build)
             if orig_main is None:
                 self._log("⚠️ 原文主 tex 未找到,跳过对照")
-                return None
+                return None, None
 
             # 原文用 pdflatex,不行再 xelatex
             if not compile_mod._compile_passes(orig_main, "pdflatex", self._log):
@@ -295,13 +300,18 @@ class Pipeline:
             orig_pdf = orig_main.parent / f"{orig_main.stem}.pdf"
             if not orig_pdf.exists() or orig_pdf.stat().st_size < 1000:
                 self._log("⚠️ 原文 PDF 编译失败,跳过对照")
-                return None
+                return None, None
+
+            # 原文 PDF 收集为产物(供并排预览/下载)
+            original_out = out_dir / f"{orig_main.stem}_orig.pdf"
+            shutil.copy2(orig_pdf, original_out)
 
             out = out_dir / f"{orig_main.stem}_bilingual.pdf"
-            return merge_bilingual(orig_pdf, translated_pdf, out, self._log)
+            bilingual = merge_bilingual(orig_pdf, translated_pdf, out, self._log)
+            return bilingual, original_out
         except Exception as e:  # noqa: BLE001
             self._log(f"⚠️ 对照 PDF 生成异常: {e}")
-            return None
+            return None, None
 
 
 def _read_text(path: Path) -> str:

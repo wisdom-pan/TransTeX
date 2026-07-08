@@ -3,6 +3,7 @@
 export interface TaskArtifacts {
   translated_pdf: string | null
   bilingual_pdf: string | null
+  original_pdf: string | null
 }
 
 export interface TaskStatus {
@@ -14,6 +15,9 @@ export interface TaskStatus {
   progress_total: number
   artifacts: TaskArtifacts
   error: string | null
+  title?: string | null
+  source?: string | null
+  created_at?: number | null
 }
 
 export interface CreateTaskResponse {
@@ -76,6 +80,14 @@ export async function listTasks(): Promise<TaskStatus[]> {
   return jsonOrThrow<TaskStatus[]>(res)
 }
 
-export function downloadUrl(taskId: string, kind: 'translated' | 'bilingual'): string {
+export type ArtifactKind = 'translated' | 'bilingual' | 'original'
+
+// 下载链接(带论文标题文件名,浏览器另存为)
+export function downloadUrl(taskId: string, kind: ArtifactKind): string {
   return `/api/tasks/${taskId}/download/${kind}`
+}
+
+// 预览链接(inline,供 iframe 在页面内渲染而非触发下载)
+export function previewUrl(taskId: string, kind: ArtifactKind): string {
+  return `/api/tasks/${taskId}/download/${kind}?inline=true`
 }
