@@ -19,6 +19,7 @@ class CreateTaskRequest(BaseModel):
 class TaskArtifacts(BaseModel):
     translated_pdf: Optional[str] = None
     bilingual_pdf: Optional[str] = None
+    original_pdf: Optional[str] = None
 
 
 class TaskStatus(BaseModel):
@@ -30,6 +31,9 @@ class TaskStatus(BaseModel):
     progress_total: int = 0
     artifacts: TaskArtifacts = Field(default_factory=TaskArtifacts)
     error: Optional[str] = None
+    title: Optional[str] = None
+    source: Optional[str] = None
+    created_at: Optional[float] = None
 
 
 class CreateTaskResponse(BaseModel):

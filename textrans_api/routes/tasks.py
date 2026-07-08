@@ -33,7 +33,12 @@ def _to_status(state: TaskState) -> TaskStatus:
                             if state.translated_pdf else None),
             bilingual_pdf=(f"/api/tasks/{state.task_id}/download/bilingual"
                            if state.bilingual_pdf else None),
+            original_pdf=(f"/api/tasks/{state.task_id}/download/original"
+                          if state.original_pdf else None),
         ),
+        title=state.title,
+        source=state.source,
+        created_at=state.created_at,
     )
 
 
@@ -105,7 +110,7 @@ def get_task(task_id: str) -> TaskStatus:
 
 
 @router.get("/tasks/{task_id}/download/{kind}")
-def download(task_id: str, kind: str) -> FileResponse:
+def download(task_id: str, kind: str, inline: bool = False) -> FileResponse:
     state = task_manager.get(task_id)
     if state is None:
         raise HTTPException(404, "任务不存在")
@@ -114,10 +119,18 @@ def download(task_id: str, kind: str) -> FileResponse:
         path = state.translated_pdf
     elif kind == "bilingual":
         path = state.bilingual_pdf
+    elif kind == "original":
+        path = state.original_pdf
     else:
-        raise HTTPException(400, "kind 须为 translated | bilingual")
+        raise HTTPException(400, "kind 须为 translated | bilingual | original")
     if not path or not path.exists():
         raise HTTPException(404, f"{kind} PDF 尚不可用")
+    # inline=预览(浏览器内渲染),否则=下载(带论文标题文件名)
+    if inline:
+        return FileResponse(
+            str(path), media_type="application/pdf",
+            headers={"Content-Disposition": "inline"},
+        )
     filename = _download_filename(state.title, kind, path)
     return FileResponse(str(path), media_type="application/pdf", filename=filename)
 
@@ -131,5 +144,5 @@ def _download_filename(title: Optional[str], kind: str, path: Path) -> str:
     safe = re.sub(r"\s+", " ", safe).strip()[:120].strip()
     if not safe:
         return path.name
-    suffix = "_中英对照" if kind == "bilingual" else "_中文"
+    suffix = {"bilingual": "_中英对照", "original": "_原文"}.get(kind, "_中文")
     return f"{safe}{suffix}.pdf"
