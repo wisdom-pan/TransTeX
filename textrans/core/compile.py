@@ -30,16 +30,61 @@ def _run(cmd: List[str], cwd: Path, timeout: int = 300) -> subprocess.CompletedP
         return None
 
 
+def _bbl_has_entries(bbl: Path) -> bool:
+    """判断 .bbl 是否含真实文献条目(\\bibitem)。"""
+    if not bbl.exists():
+        return False
+    try:
+        return "\\bibitem" in bbl.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
+
+def _should_run_bibtex(work: Path, stem: str) -> bool:
+    r"""是否应跑 bibtex。
+
+    arXiv 论文普遍只发预编译的 .bbl 而不带 .bib;此时跑 bibtex 会因找不到
+    .bib 生成一个空 .bbl,覆盖掉完整的参考文献。故仅当:
+      - 工作目录存在 .bib 文件,且
+      - .aux 里有 \bibdata(说明确实用 bibtex 流程)
+    时才运行。否则保留预编译 .bbl。
+    """
+    aux = work / f"{stem}.aux"
+    if not aux.exists():
+        return False
+    has_bib = any(work.rglob("*.bib"))
+    if not has_bib:
+        return False
+    try:
+        aux_text = aux.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return "\\bibdata" in aux_text
+
+
 def _compile_passes(tex_file: Path, engine: str, log: Logger) -> bool:
-    """完整编译流程:引擎 → bibtex → 引擎 ×2。返回是否生成有效 PDF。"""
+    """完整编译流程:引擎 → (条件)bibtex → 引擎 ×2。返回是否生成有效 PDF。
+
+    bibtex 仅在确有 .bib 时运行;并对已存在的 .bbl 做备份/还原,
+    防止 bibtex 失败把完整的预编译参考文献清空(arXiv 常见)。
+    """
     work = tex_file.parent
     name = tex_file.name
     stem = tex_file.stem
     pdf = work / f"{stem}.pdf"
+    bbl = work / f"{stem}.bbl"
 
     _run([engine, "-interaction=nonstopmode", name], work)
-    if (work / f"{stem}.aux").exists():
+
+    if _should_run_bibtex(work, stem):
+        # 备份现有 .bbl,bibtex 若把它弄空则还原
+        had_entries = _bbl_has_entries(bbl)
+        backup = bbl.read_bytes() if bbl.exists() else None
         _run(["bibtex", stem], work, timeout=60)
+        if had_entries and not _bbl_has_entries(bbl) and backup is not None:
+            log("⚠️ bibtex 未产出文献,还原预编译 .bbl")
+            bbl.write_bytes(backup)
+
     _run([engine, "-interaction=nonstopmode", name], work)
     _run([engine, "-interaction=nonstopmode", name], work)
 

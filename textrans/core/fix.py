@@ -27,8 +27,21 @@ def _brace_balance(s: str) -> int:
 
 
 def _count_commands(s: str) -> int:
-    r"""统计 LaTeX 命令数(\word 形式,不含转义符 \% \& 等)。"""
-    return len(re.findall(r"\\[a-zA-Z]+", s))
+    r"""统计 LaTeX 命令数(\word 形式,不含转义符 \% \& 等)。
+
+    排除「文本缩写宏」(\eg \ie \etc 等):这类宏展开为纯文本,LLM 常把
+    (\eg, ...) 直接译成(例如,……),命令数因此从 1 变 0。它们丢失不影响
+    编译(可编译内容),不应据此把整段译文回退成英文原文。
+    """
+    cmds = re.findall(r"\\([a-zA-Z]+)", s)
+    return sum(1 for c in cmds if c.lower() not in _TEXT_ABBREV_MACROS)
+
+
+# 展开为纯文本的常见缩写宏:翻译时被译掉属正常,不计入命令数校验。
+_TEXT_ABBREV_MACROS = {
+    "eg", "ie", "etc", "cf", "etal", "vs", "wrt", "aka", "resp",
+    "viz", "ea", "iid", "wlog",
+}
 
 
 # 模型偶尔会输出的元信息 / 拒答话术,命中则视为翻译失败
