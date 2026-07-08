@@ -81,8 +81,24 @@ def _apply_env(cfg: Config) -> None:
     openai_cfg.base_url = os.getenv("OPENAI_BASE_URL", openai_cfg.base_url)
 
 
+def _load_dotenv() -> None:
+    """加载项目根目录的 .env 到 os.environ(不覆盖已存在的真实环境变量)。
+
+    代码只读 os.getenv,若不主动加载 .env,则文件中的 KIMI_API_KEY 等
+    不会生效,导致请求带空密钥 → 401 unauthorized。python-dotenv 缺失时静默跳过。
+    """
+    try:
+        from dotenv import load_dotenv
+    except ModuleNotFoundError:  # pragma: no cover
+        return
+    # config.py 在 textrans/ 下,.env 在其上一级项目根目录
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    load_dotenv(env_path, override=False)
+
+
 def load_config(path: Optional[Path] = None) -> Config:
     """加载配置。若存在 config.toml 则合并。"""
+    _load_dotenv()
     cfg = Config()
 
     toml_path = path or Path("config.toml")
