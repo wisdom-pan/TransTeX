@@ -1,13 +1,13 @@
 'use client'
 
-import { Sparkles, FileText, KeyRound, MessageSquare, Bot } from 'lucide-react'
+import { Sparkles, FileText, Columns, Layers, FileCode } from 'lucide-react'
 
 const features = [
   { icon: Sparkles, label: '完全免费', color: 'text-green-600', bgColor: 'bg-green-50' },
-  { icon: FileText, label: '文献翻译', color: 'text-violet-600', bgColor: 'bg-violet-50' },
-  { icon: KeyRound, label: '关键术语', color: 'text-pink-600', bgColor: 'bg-pink-50' },
-  { icon: Bot, label: 'AI摘要', color: 'text-rose-600', bgColor: 'bg-rose-50' },
-  { icon: MessageSquare, label: 'AI对话', color: 'text-amber-600', bgColor: 'bg-amber-50' },
+  { icon: Layers, label: '排版无损', color: 'text-violet-600', bgColor: 'bg-violet-50' },
+  { icon: Columns, label: '中英对照', color: 'text-pink-600', bgColor: 'bg-pink-50' },
+  { icon: FileCode, label: 'LaTeX 原生', color: 'text-rose-600', bgColor: 'bg-rose-50' },
+  { icon: FileText, label: 'arXiv 一键', color: 'text-amber-600', bgColor: 'bg-amber-50' },
 ]
 
 export default function Hero() {
