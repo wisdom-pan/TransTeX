@@ -10,7 +10,13 @@ from typing import List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from ..schemas import CreateTaskRequest, CreateTaskResponse, TaskArtifacts, TaskStatus
+from ..schemas import (
+    CreateTaskRequest,
+    CreateTaskResponse,
+    ReloadResponse,
+    TaskArtifacts,
+    TaskStatus,
+)
 from ..services.task_manager import TaskState, task_manager
 
 router = APIRouter(prefix="/api", tags=["tasks"])
@@ -99,6 +105,18 @@ async def create_task_upload(
 @router.get("/tasks", response_model=List[TaskStatus])
 def list_tasks() -> List[TaskStatus]:
     return [_to_status(s) for s in task_manager.all()]
+
+
+@router.post("/tasks/reload", response_model=ReloadResponse)
+def reload_tasks() -> ReloadResponse:
+    """重扫磁盘产物,同步后端内存与历史记录。
+
+    用于「用 CLI(`python3 -m textrans`)重跑后,网页历史仍显示旧的
+    对照/原文 PDF 缺失」的场景——CLI 只写磁盘不更新后端内存,调用本
+    接口即可让后端重读 DB + 重扫各任务 output/,无需重启服务。
+    """
+    changed = task_manager.refresh_from_disk()
+    return ReloadResponse(changed=changed, total=len(task_manager.all()))
 
 
 @router.get("/tasks/{task_id}", response_model=TaskStatus)

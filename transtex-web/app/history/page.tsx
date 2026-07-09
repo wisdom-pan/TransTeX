@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Clock, CheckCircle2, XCircle, Loader2, Inbox } from 'lucide-react'
+import { ArrowLeft, FileText, Clock, CheckCircle2, XCircle, Loader2, Inbox, RefreshCw } from 'lucide-react'
 import Navbar from '@/components/Navbar'
-import { listTasks, TaskStatus } from '@/lib/api'
+import { listTasks, reloadTasks, TaskStatus } from '@/lib/api'
 
 const STATUS_META: Record<
   string,
@@ -28,21 +28,40 @@ function fmtTime(ts?: number | null): string {
 export default function HistoryPage() {
   const [tasks, setTasks] = useState<TaskStatus[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const fetchTasks = useCallback(async () => {
+    const list = await listTasks()
+    // 按创建时间倒序(新的在前);无 created_at 的排后面
+    setTasks([...list].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0)))
+  }, [])
 
   useEffect(() => {
     let active = true
     listTasks()
       .then((list) => {
         if (!active) return
-        // 按创建时间倒序(新的在前);无 created_at 的排后面
-        const sorted = [...list].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
-        setTasks(sorted)
+        setTasks([...list].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0)))
       })
       .catch((e) => active && setError(e instanceof Error ? e.message : '加载失败'))
     return () => {
       active = false
     }
   }, [])
+
+  // 重扫磁盘同步后端(CLI 重跑后刷新对照/原文 PDF),再重新拉取列表
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true)
+    setError(null)
+    try {
+      await reloadTasks()
+      await fetchTasks()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '刷新失败')
+    } finally {
+      setRefreshing(false)
+    }
+  }, [fetchTasks])
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -56,7 +75,18 @@ export default function HistoryPage() {
           返回
         </Link>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">历史记录</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">历史记录</h1>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            title="重扫磁盘产物,同步对照/原文 PDF(用命令行重跑后点此刷新)"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:border-violet-300 hover:text-violet-600 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? '刷新中' : '刷新'}
+          </button>
+        </div>
 
         {error && <p className="text-sm text-red-500">{error}</p>}
 

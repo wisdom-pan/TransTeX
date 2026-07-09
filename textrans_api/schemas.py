@@ -39,3 +39,8 @@ class TaskStatus(BaseModel):
 class CreateTaskResponse(BaseModel):
     task_id: str
     status: str
+
+
+class ReloadResponse(BaseModel):
+    changed: int = Field(description="本次刷新中状态/产物发生变更的任务数")
+    total: int = Field(description="刷新后内存中的任务总数")
