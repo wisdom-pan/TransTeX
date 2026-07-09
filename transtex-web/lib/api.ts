@@ -80,6 +80,17 @@ export async function listTasks(): Promise<TaskStatus[]> {
   return jsonOrThrow<TaskStatus[]>(res)
 }
 
+export interface ReloadResponse {
+  changed: number
+  total: number
+}
+
+// 重扫磁盘产物,同步后端(CLI 重跑后用它刷新历史,无需重启服务)
+export async function reloadTasks(): Promise<ReloadResponse> {
+  const res = await fetch('/api/tasks/reload', { method: 'POST' })
+  return jsonOrThrow<ReloadResponse>(res)
+}
+
 export type ArtifactKind = 'translated' | 'bilingual' | 'original'
 
 // 下载链接(带论文标题文件名,浏览器另存为)

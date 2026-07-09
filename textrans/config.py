@@ -33,7 +33,7 @@ _DEFAULT_PROVIDERS: dict[str, ProviderConfig] = {
         # 密钥请通过 KIMI_API_KEY 环境变量注入,切勿硬编码到源码。
         api_key="",
         base_url="https://aiping.cn/api/v1",
-        model="Kimi-K2.5",
+        model="Kimi-K2.6",
     ),
     "openai": ProviderConfig(
         base_url="https://api.openai.com/v1",
