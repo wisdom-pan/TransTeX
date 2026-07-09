@@ -26,28 +26,41 @@ def _brace_balance(s: str) -> int:
     return depth
 
 
-def _count_commands(s: str) -> int:
-    r"""统计 LaTeX 命令数(\word 形式,不含转义符 \% \& 等)。
+def _structural_counts(s: str) -> dict:
+    r"""统计「结构性命令」的出现次数(按命令名分桶)。
 
-    排除「文本缩写宏」(\eg \ie \etc 等):这类宏展开为纯文本,LLM 常把
-    (\eg, ...) 直接译成(例如,……),命令数因此从 1 变 0。它们丢失不影响
-    编译(可编译内容),不应据此把整段译文回退成英文原文。
+    只有结构性命令(环境定界、列表项)的数量失配才会破坏编译,才据此回退。
+    其余内联命令(命名宏 \sys \method、格式宏 \textbf \texttt、\noindent \S 等)
+    翻译时被丢弃/复用属常见现象且不影响可编译性:
+      - 带花括号的格式宏若整体丢失,花括号成对消失,由括号平衡校验兜底;
+      - 无花括号的命名/间距宏丢失只是丢了个词或排版微调,不该让整段回退英文。
+    过去用「全部命令精确等数」做校验,导致 LLM 少译一个 \sys 就把整段中文
+    回退成英文原文(实测语料中 130+ 段正文因此未翻译)。改为只校验结构性命令。
     """
-    cmds = re.findall(r"\\([a-zA-Z]+)", s)
-    return sum(1 for c in cmds if c.lower() not in _TEXT_ABBREV_MACROS)
+    counts: dict[str, int] = {}
+    for c in re.findall(r"\\([a-zA-Z]+)", s):
+        name = c.lower()
+        if name in _STRUCTURAL_CMDS:
+            counts[name] = counts.get(name, 0) + 1
+    return counts
 
 
-# 展开为纯文本的常见缩写宏:翻译时被译掉属正常,不计入命令数校验。
-_TEXT_ABBREV_MACROS = {
-    "eg", "ie", "etc", "cf", "etal", "vs", "wrt", "aka", "resp",
-    "viz", "ea", "iid", "wlog",
+# 结构性命令:数量失配会破坏 LaTeX 编译(环境定界、列表结构),必须严格匹配。
+_STRUCTURAL_CMDS = {
+    "begin", "end", "item",
+    "squishlist", "squishlisttwo", "squishend",  # 常见自定义紧凑列表宏
+    "itemize", "enumerate", "description",
 }
 
 
-# 模型偶尔会输出的元信息 / 拒答话术,命中则视为翻译失败
+# 模型偶尔会输出的元信息 / 拒答话术,命中则视为翻译失败。
+# 注意:这些串必须是「几乎只可能出现在拒答/元话术里」的。曾误收 "作为一个",
+# 但它是极常见的正文措辞(如「作为一个通用世界基础模型」「作为一个耦合的技能栈」),
+# 会把正常中文段落误判为拒答并回退英文;拒答话术改由更具体的 "作为AI" 等捕获。
 _META_PATTERNS = [
     "请提供", "需要翻译的", "以下是翻译", "翻译如下", "翻译结果",
-    "的中文翻译", "抱歉", "无法翻译", "作为一个", "作为AI",
+    "的中文翻译", "抱歉", "无法翻译", "作为AI", "作为一个AI", "作为一名AI",
+    "作为语言模型", "作为一个语言模型",
     "[Local Message]", "Traceback", "```",
 ]
 
@@ -121,8 +134,10 @@ def fix_content(translated: str, original: str) -> str:
     #     (CJK 在 xeCJK 里可能有 letter catcode)。用 "{}" 分隔既断开控制词又不产生多余空格。
     fixed = re.sub(r"(\\[a-zA-Z]+)(?=[一-鿿　-〿＀-￯])", r"\1{}", fixed)
 
-    # 4) 命令数不一致 → 说明模型翻译了/丢了命令,整段回退
-    if _count_commands(fixed) != _count_commands(original):
+    # 4) 结构性命令(环境定界 / 列表项)数量失配 → 会破坏编译,整段回退。
+    #    不再校验全部命令等数:内联命名/格式宏(\sys \textbf \noindent 等)
+    #    被 LLM 丢弃/复用不影响可编译性,由下面的括号平衡校验兜底即可。
+    if _structural_counts(fixed) != _structural_counts(original):
         return original
 
     # 5) 括号层级不一致 → 部分回退
