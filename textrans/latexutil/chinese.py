@@ -128,11 +128,29 @@ def _read(path: Path) -> tuple[str, str]:
     return path.read_bytes().decode("utf-8", errors="replace"), "utf-8"
 
 
+def _has_active_cjk_package(content: str) -> bool:
+    """判断是否已有生效的 xeCJK/ctex 中文支持(忽略被注释的行)。
+
+    注意:原文常自带被注释的 `%\\usepackage{xeCJK}`,若不排除注释行会误判
+    "已有中文支持" 而跳过注入,导致 XeLaTeX 下中文无字体、满屏 Missing character。
+    另:pdfLaTeX 方案 `CJKutf8` 需要 \\begin{CJK} 环境,在 XeLaTeX 下不算生效,故不计入。
+    """
+    for line in content.split("\n"):
+        stripped = line.lstrip()
+        if stripped.startswith("%"):
+            continue
+        # 去掉行内注释(未转义的 %)后再匹配
+        code = re.split(r"(?<!\\)%", line, maxsplit=1)[0]
+        if re.search(r"\\usepackage(?:\[[^\]]*\])?\{[^}]*\b(?:xeCJK|ctex)\b[^}]*\}", code):
+            return True
+    return False
+
+
 def add_chinese_support(tex_file: Path, log: Logger = print) -> None:
     """在主 tex 的 \\documentclass 之后注入中文支持(幂等)。"""
     content, enc = _read(tex_file)
 
-    if re.search(r"\\usepackage.*\bctex\b", content) or re.search(r"\\usepackage.*\bxeCJK\b", content):
+    if _has_active_cjk_package(content):
         return  # 已有中文支持
 
     docclass_m = re.search(r"\\documentclass.*?\{([^}]+)\}", content)
