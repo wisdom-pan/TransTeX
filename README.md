@@ -188,7 +188,7 @@ textrans_api/      FastAPI 后端 —— REST + WebSocket 进度 + PDF 下载
 transtex-web/      Next.js 前端 —— arXiv 链接 / zip 上传 · 实时进度 · 结果下载
 ```
 
----
+
 
 ## 许可证
 
