@@ -23,10 +23,11 @@ interface PdfViewerProps {
   title: string
   scrollRef: React.RefObject<HTMLDivElement | null>
   onScroll: () => void
+  heightClass?: string
 }
 
 /** 把单个 PDF 逐页渲染成 canvas,放进可滚动容器。 */
-function PdfViewer({ src, title, scrollRef, onScroll }: PdfViewerProps) {
+function PdfViewer({ src, title, scrollRef, onScroll, heightClass = 'h-[75vh]' }: PdfViewerProps) {
   const pagesRef = useRef<HTMLDivElement | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState<string>('')
@@ -102,7 +103,7 @@ function PdfViewer({ src, title, scrollRef, onScroll }: PdfViewerProps) {
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="relative h-[75vh] overflow-y-auto bg-gray-100 px-3 py-3"
+        className={`relative ${heightClass} overflow-y-auto bg-gray-100 px-3 py-3`}
       >
         {status === 'error' && (
           <p className="text-sm text-red-500 p-4">PDF 加载失败:{error}</p>
@@ -118,6 +119,7 @@ interface PdfCompareProps {
   rightSrc: string
   leftTitle?: string
   rightTitle?: string
+  heightClass?: string
 }
 
 /** 并排两个 PDF,按滚动比例双向同步。 */
@@ -126,6 +128,7 @@ export default function PdfCompare({
   rightSrc,
   leftTitle = '英文原文',
   rightTitle = '中文译文',
+  heightClass,
 }: PdfCompareProps) {
   const leftRef = useRef<HTMLDivElement | null>(null)
   const rightRef = useRef<HTMLDivElement | null>(null)
@@ -177,12 +180,14 @@ export default function PdfCompare({
           title={leftTitle}
           scrollRef={leftRef}
           onScroll={() => syncFrom('left')}
+          heightClass={heightClass}
         />
         <PdfViewer
           src={rightSrc}
           title={rightTitle}
           scrollRef={rightRef}
           onScroll={() => syncFrom('right')}
+          heightClass={heightClass}
         />
       </div>
     </div>
