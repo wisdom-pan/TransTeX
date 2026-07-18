@@ -232,6 +232,15 @@ class Pipeline:
         """
         # 简化策略:先普通多轮编译;失败才启用回退(回退时重注入中文支持)。
         engine = "xelatex"
+        # 引擎缺失会触发 _run 静默 FileNotFoundError,既不产 .log 也无 PDF,
+        # 导致下面回退循环空转,并把无害的「Noto 回退 PingFang」提示当成失败原因。
+        # 故先探测一次:缺引擎就直接快速失败,报清楚的根因。
+        if not shutil.which(engine):
+            self._log(
+                f"❌ 未找到 LaTeX 引擎 `{engine}`,无法编译。"
+                f"请安装 TeX 发行版(MacTeX/TeX Live)或在 Docker 中运行后端。"
+            )
+            return None
         ok = compile_mod._compile_passes(main_tex, engine, self._log)
         if ok:
             pdf = main_tex.parent / f"{main_tex.stem}.pdf"
