@@ -3,7 +3,7 @@
 import { use, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { ArrowLeft, Download, FileText, Columns, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Download, FileText, Columns, Eye, EyeOff, ExternalLink } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import ProgressTracker from '@/components/ProgressTracker'
 import { useTaskSocket } from '@/lib/useTaskSocket'
@@ -55,13 +55,24 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
                 <Columns className="w-5 h-5 text-violet-600" />
                 中英对照预览
               </h2>
-              <button
-                onClick={() => setShowPreview((v) => !v)}
-                className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-violet-600"
-              >
-                {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                {showPreview ? '收起' : '展开'}
-              </button>
+              <div className="flex items-center gap-3">
+                <a
+                  href={`/task/${id}/preview`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-violet-600"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  新窗口打开
+                </a>
+                <button
+                  onClick={() => setShowPreview((v) => !v)}
+                  className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-violet-600"
+                >
+                  {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPreview ? '收起' : '展开'}
+                </button>
+              </div>
             </div>
 
             {showPreview && (
