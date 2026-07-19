@@ -19,13 +19,24 @@ class OpenAICompatProvider(LLMProvider):
     @property
     def client(self):
         if self._client is None:
+            import httpx
             import openai
 
+            # 自定义 httpx 传输:连接级重试 + 短 keepalive。
+            # Kimi(aiping.cn)偶发 "EOF occurred in violation of protocol (_ssl.c:...)"
+            # 多因连接池复用了服务端已关闭的陈旧 SSL 连接;transport retries 在连接
+            # 建立阶段重试,短 keepalive_expiry 让空闲连接尽快被丢弃、不再复用陈旧连接。
+            transport = httpx.HTTPTransport(retries=3, keepalive_expiry=5.0)
+            http_client = httpx.Client(
+                transport=transport,
+                timeout=self.cfg.timeout,
+            )
             self._client = openai.OpenAI(
                 api_key=self.cfg.api_key,
                 base_url=self.cfg.base_url,
                 timeout=self.cfg.timeout,
-                max_retries=0,  # 重试由 base 层统一处理
+                max_retries=0,  # 应用层重试由 base 层统一处理
+                http_client=http_client,
             )
         return self._client
 

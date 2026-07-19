@@ -5,7 +5,9 @@
 """
 from __future__ import annotations
 
+import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Callable, List, Optional
@@ -16,17 +18,41 @@ from .merge import LatexMerger
 Logger = Callable[[str], None]
 
 
+def _ensure_texbin_in_path(log: Logger = lambda _msg: None) -> None:
+    """确保 xelatex 等引擎在 PATH 里。
+
+    macOS 上 MacTeX/TeX Live 装在 /Library/TeX/texbin,但若 backend 由未 source
+    ~/.zshrc 的进程启动(IDE 集成终端、非登录 shell、GUI 启动器),PATH 里没有它,
+    xelatex 会 FileNotFoundError 被 _run 静默吞掉,表现为"编译失败但无 .log",
+    日志驱动修复也因无 .log 而空转。这里在找不到引擎时补上 texbin。
+    Linux/容器已有 texbin,shutil.which 命中即直接返回。
+    """
+    if shutil.which("xelatex"):
+        return
+    for texbin in ("/Library/TeX/texbin", "/usr/local/texlive/2026/bin/universal-darwin"):
+        if os.path.isdir(texbin) and os.path.exists(os.path.join(texbin, "xelatex")):
+            os.environ["PATH"] = texbin + os.pathsep + os.environ.get("PATH", "")
+            log(f"🔗 已把 {texbin} 补入 PATH(启动环境未自带 TeX)")
+            return
+
+
 def detect_engine(tex_content: str) -> str:
     """选择编译引擎。含 xeCJK/fontspec/ctex → xelatex(中文默认 xelatex)。"""
     return "xelatex"  # 注入中文支持后一律 xelatex
 
 
-def _run(cmd: List[str], cwd: Path, timeout: int = 300) -> subprocess.CompletedProcess | None:
+def _run(
+    cmd: List[str], cwd: Path, timeout: int = 300, log: Logger = lambda _msg: None
+) -> subprocess.CompletedProcess | None:
     try:
         return subprocess.run(cmd, cwd=cwd, capture_output=True, timeout=timeout)
     except subprocess.TimeoutExpired:
+        log(f"⚠️ 命令超时({timeout}s): {' '.join(cmd[:3])}")
         return None
     except FileNotFoundError:
+        # 引擎不在 PATH —— 这是环境问题,不是 LaTeX 源问题。
+        # 不再静默:明确报出,避免误入"日志驱动修复"死循环(那需要 .log,而此处根本没产生)。
+        log(f"❌ 找不到可执行文件: {cmd[0]}(PATH 里没有 xelatex/pdflatex,请安装 MacTeX/TeXLive)")
         return None
 
 
@@ -74,19 +100,21 @@ def _compile_passes(tex_file: Path, engine: str, log: Logger) -> bool:
     pdf = work / f"{stem}.pdf"
     bbl = work / f"{stem}.bbl"
 
-    _run([engine, "-interaction=nonstopmode", name], work)
+    _ensure_texbin_in_path(log)
+
+    _run([engine, "-interaction=nonstopmode", name], work, log=log)
 
     if _should_run_bibtex(work, stem):
         # 备份现有 .bbl,bibtex 若把它弄空则还原
         had_entries = _bbl_has_entries(bbl)
         backup = bbl.read_bytes() if bbl.exists() else None
-        _run(["bibtex", stem], work, timeout=60)
+        _run(["bibtex", stem], work, timeout=60, log=log)
         if had_entries and not _bbl_has_entries(bbl) and backup is not None:
             log("⚠️ bibtex 未产出文献,还原预编译 .bbl")
             bbl.write_bytes(backup)
 
-    _run([engine, "-interaction=nonstopmode", name], work)
-    _run([engine, "-interaction=nonstopmode", name], work)
+    _run([engine, "-interaction=nonstopmode", name], work, log=log)
+    _run([engine, "-interaction=nonstopmode", name], work, log=log)
 
     return pdf.exists() and pdf.stat().st_size > 1000
 

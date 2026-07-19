@@ -14,6 +14,7 @@ export default function UploadArea() {
   const [file, setFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [bilingual, setBilingual] = useState(true)
+  const [useCache, setUseCache] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -33,11 +34,11 @@ export default function UploadArea() {
       let taskId: string
       if (mode === 'arxiv') {
         if (!arxivInput.trim()) throw new Error('请输入 arXiv 链接或 ID')
-        const r = await createTask({ arxiv_url: arxivInput.trim(), make_bilingual: bilingual })
+        const r = await createTask({ arxiv_url: arxivInput.trim(), make_bilingual: bilingual, use_cache: useCache })
         taskId = r.task_id
       } else {
         if (!file) throw new Error('请选择源码压缩包')
-        const r = await uploadTask(file, { make_bilingual: bilingual })
+        const r = await uploadTask(file, { make_bilingual: bilingual, use_cache: useCache })
         taskId = r.task_id
       }
       router.push(`/task/${taskId}`)
@@ -45,7 +46,7 @@ export default function UploadArea() {
       setError(e instanceof Error ? e.message : '提交失败')
       setSubmitting(false)
     }
-  }, [mode, arxivInput, file, bilingual, router])
+  }, [mode, arxivInput, file, bilingual, useCache, router])
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -137,6 +138,16 @@ export default function UploadArea() {
             className="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
           />
           生成中英对照 PDF
+        </label>
+
+        <label className="flex items-center gap-2 mt-2 text-sm text-gray-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={useCache}
+            onChange={(e) => setUseCache(e.target.checked)}
+            className="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+          />
+          启用翻译缓存(关闭则每次全量重译)
         </label>
 
         {error && <p className="text-sm text-red-500 mt-3">{error}</p>}

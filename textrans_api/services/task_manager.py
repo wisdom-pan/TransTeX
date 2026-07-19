@@ -199,12 +199,13 @@ class TaskManager:
 
     # -------------------------------------------------------------- #
     def create_task(self, source: str, *, provider: Optional[str] = None,
-                    make_bilingual: bool = True, workers: int = 8) -> str:
+                    make_bilingual: bool = True, workers: int = 8,
+                    use_cache: bool = True) -> str:
         task_id = uuid.uuid4().hex[:12]
         state = TaskState(task_id=task_id, source=source)
         self._tasks[task_id] = state
         self._save(state)
-        self._executor.submit(self._run, task_id, source, provider, make_bilingual, workers)
+        self._executor.submit(self._run, task_id, source, provider, make_bilingual, workers, use_cache)
         return task_id
 
     def get(self, task_id: str) -> Optional[TaskState]:
@@ -244,7 +245,7 @@ class TaskManager:
             self._loop.call_soon_threadsafe(q.put_nowait, snapshot)
 
     def _run(self, task_id: str, source: str, provider: Optional[str],
-             make_bilingual: bool, workers: int) -> None:
+             make_bilingual: bool, workers: int, use_cache: bool = True) -> None:
         """在 worker 线程执行流水线。"""
         state = self._tasks[task_id]
         state.status = "running"
@@ -264,6 +265,7 @@ class TaskManager:
                 make_bilingual=make_bilingual,
                 add_watermark=self._config.watermark_path.exists(),
                 watermark_path=self._config.watermark_path,
+                use_cache=use_cache,
             )
             pipeline = Pipeline(tconf=tconf, config=self._config, on_progress=on_progress)
             result = pipeline.run(source)

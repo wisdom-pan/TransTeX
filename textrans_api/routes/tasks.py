@@ -56,6 +56,7 @@ def create_task(req: CreateTaskRequest) -> CreateTaskResponse:
     task_id = task_manager.create_task(
         req.arxiv_url, provider=req.provider,
         make_bilingual=req.make_bilingual, workers=req.workers,
+        use_cache=req.use_cache,
     )
     return CreateTaskResponse(task_id=task_id, status="queued")
 
@@ -66,6 +67,7 @@ async def create_task_upload(
     provider: Optional[str] = Form(None),
     make_bilingual: bool = Form(True),
     workers: int = Form(8),
+    use_cache: bool = Form(True),
 ) -> CreateTaskResponse:
     """上传 tex 源码压缩包(.zip/.tar.gz)创建任务。"""
     import tarfile
@@ -98,6 +100,7 @@ async def create_task_upload(
     task_id = task_manager.create_task(
         str(source_dir), provider=provider,
         make_bilingual=make_bilingual, workers=workers,
+        use_cache=use_cache,
     )
     return CreateTaskResponse(task_id=task_id, status="queued")
 
