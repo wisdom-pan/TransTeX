@@ -14,6 +14,7 @@ class CreateTaskRequest(BaseModel):
     provider: Optional[str] = Field(default=None, description="LLM provider(kimi/openai)")
     make_bilingual: bool = True
     workers: int = 8
+    use_cache: bool = Field(default=True, description="是否启用翻译缓存(关闭则每次全量重译)")
 
 
 class TaskArtifacts(BaseModel):

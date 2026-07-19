@@ -30,6 +30,7 @@ export interface CreateTaskParams {
   provider?: string
   make_bilingual?: boolean
   workers?: number
+  use_cache?: boolean
 }
 
 async function jsonOrThrow<T>(res: Response): Promise<T> {
@@ -59,13 +60,14 @@ export async function createTask(params: CreateTaskParams): Promise<CreateTaskRe
 // 上传源码压缩包创建任务
 export async function uploadTask(
   file: File,
-  opts: { provider?: string; make_bilingual?: boolean; workers?: number } = {},
+  opts: { provider?: string; make_bilingual?: boolean; workers?: number; use_cache?: boolean } = {},
 ): Promise<CreateTaskResponse> {
   const form = new FormData()
   form.append('file', file)
   if (opts.provider) form.append('provider', opts.provider)
   form.append('make_bilingual', String(opts.make_bilingual ?? true))
   form.append('workers', String(opts.workers ?? 8))
+  form.append('use_cache', String(opts.use_cache ?? true))
   const res = await fetch('/api/tasks/upload', { method: 'POST', body: form })
   return jsonOrThrow<CreateTaskResponse>(res)
 }
