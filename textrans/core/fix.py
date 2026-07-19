@@ -86,6 +86,44 @@ def _strip_stray_tags(s: str) -> str:
     return s
 
 
+def _brace_delta(s: str) -> int:
+    """单行内 `{` 与 `}` 的净深度增量(跳过 `\X` 转义,与 _brace_balance 同口径)。"""
+    depth = 0
+    i, n = 0, len(s)
+    while i < n:
+        c = s[i]
+        if c == "\\":
+            i += 2
+            continue
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+        i += 1
+    return depth
+
+
+def _collapse_blank_in_args(s: str) -> str:
+    r"""折叠命令参数内的空行,避免 `\par` 打断非 `\long` 命令参数。
+
+    LLM 译文常把 `\textbf{术语}` 拆成 `\textbf{\\n\\n术语}`,空行在非 `\\long`
+    命令参数里会触发 ``! Paragraph ended before \\text@command was complete``,
+    进而触发日志驱动修复把整段回退成英文(表现为"该段没被翻译")。
+    只折叠「自上一行起括号仍未闭合(深度>0)」的空行;深度为 0 处的空行
+    (段落正文、`\\begin`/`\\end` 环境体)原样保留。删掉空行后前后各留一个
+    换行,TeX 视作单个空格,既不断词也不产生 `\\par`。
+    """
+    lines = s.split("\n")
+    out: list[str] = []
+    depth = 0
+    for line in lines:
+        if line.strip() == "" and depth > 0:
+            continue  # 参数内的空行:删掉,保留单个换行=空格,避免 \par
+        out.append(line)
+        depth = max(0, depth + _brace_delta(line))
+    return "\n".join(out)
+
+
 def _join_most(translated: str, original: str) -> str:
     """括号不平衡时的部分回退:取译文中括号已平衡的最长前缀,后半接原文。
 
@@ -117,6 +155,9 @@ def fix_content(translated: str, original: str) -> str:
         return original
 
     fixed = _strip_stray_tags(translated)
+
+    # 0) 折叠命令参数内的空行(LLM 常把 \textbf{X} 拆成跨空行,导致 \par 打断参数)
+    fixed = _collapse_blank_in_args(fixed)
 
     # 1) 转义裸 %(LaTeX 注释符;中文语境的百分号必须写成 \%)
     fixed = re.sub(r"(?<!\\)%", r"\\%", fixed)

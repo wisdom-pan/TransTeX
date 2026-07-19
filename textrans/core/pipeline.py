@@ -215,7 +215,16 @@ class Pipeline:
                 on_progress=lambda d, t: self._emit(Stage.TRANSLATING, f"{rel}: {d}/{t} 段", d, t),
                 glossary=self._glossary,
             )
-            if cache is not None:
+            # translate_segments 返回 List[Optional[str]]:None 表示该段彻底未译出
+            # (如 SSL 连接错误,nudge 重译也失败)。此时:
+            #   1) 不写缓存——避免把「回退原文」固化,让下次重跑重译这段;
+            #   2) 用原文回填,保证可编译(缺失翻译好过崩溃)。
+            has_failed = any(c is None for c in chunks)
+            if has_failed:
+                n_fail = sum(c is None for c in chunks)
+                self._log(f"⚠️ {rel}: {n_fail} 段因 API 失败未译出,回退原文(未写缓存,下次重跑重译)")
+                chunks = [c if c is not None else sr.chunks[i] for i, c in enumerate(chunks)]
+            if cache is not None and not has_failed:
                 cache.save_chunks(rel, chunks, src_hash)
 
         merger = LatexMerger(sr)

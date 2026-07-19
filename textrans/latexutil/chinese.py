@@ -92,15 +92,15 @@ def _xecjk_config(log: Logger) -> str:
             "\\xeCJKsetup{AutoFallBack=true, CJKmath=true}\n"
         )
 
-    # 3) 兜底:按平台选默认字体名(macOS 用 PingFang;其它用 Noto 名碰运气)
+    # 3) 兜底:按平台选默认字体名
     if platform.system() == "Darwin":
-        log("⚠️ 未找到 Noto CJK,回退 PingFang SC(macOS)")
+        log("⚠️ 未找到 Noto CJK,回退 macOS 内置字体(正文宋体 Songti SC)")
         return (
-            "% 中文支持 - xeCJK(回退 PingFang SC)\n"
+            "% 中文支持 - xeCJK(回退 macOS 内置字体:正文宋体)\n"
             "\\usepackage{xeCJK}\n"
-            "\\setCJKmainfont{PingFang SC}[BoldFont=PingFang SC Semibold]\n"
+            "\\setCJKmainfont{Songti SC}[BoldFont=Songti SC Bold]\n"
             "\\setCJKsansfont{PingFang SC}[BoldFont=PingFang SC Semibold]\n"
-            "\\setCJKmonofont{PingFang SC}\n"
+            "\\setCJKmonofont{Songti SC}\n"
             "\\xeCJKsetup{AutoFallBack=true, CJKmath=true}\n"
         )
     log("⚠️ 未找到中文字体,回退 Noto CJK 名(需系统已装 fonts-noto-cjk)")
