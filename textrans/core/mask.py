@@ -108,6 +108,12 @@ _TRANSPARENT_WRAP_CMDS = {
     "textsc", "textsf", "textrm", "underline", "bf", "it", "sc", "sl",
     "large", "Large", "LARGE", "huge", "Huge", "small", "footnotesize",
     "normalsize", "mbox", "hbox", "textnormal", "mathrm",
+    # \texorpdfstring{<可见富文本>}{<PDF 书签纯文本>}:第一参数是标题/节标题的
+    # 可见版(常含 minipage/tabular 排版 + 正文),其正文应翻译;第二参数纯文本本就翻译。
+    # 若不透明,_reprotect_inline 会把整个第一参数(含 minipage 里的标题文字)整体保护,
+    # 导致页面标题不翻译(只有 PDF 书签翻)。透明后只保护 \raisebox/\includegraphics/
+    # \begin{minipage}/\centering/\\ 等结构,minipage 里的标题正文被挖回翻译。
+    "texorpdfstring",
 }
 
 
