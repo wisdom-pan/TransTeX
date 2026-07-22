@@ -124,6 +124,26 @@ def _collapse_blank_in_args(s: str) -> str:
     return "\n".join(out)
 
 
+_SUBSUP_RE = re.compile(r"(?<!\\)([_^])")
+_INLINE_MATH_RE = re.compile(r"\$.*?\$", re.DOTALL)
+
+
+def _escape_subsup(s: str) -> str:
+    r"""转义裸 _ 和 ^(未被 \ 前置),跳过 $...$ 行内数学区。
+
+    见 fix_content 的 1b 步说明:兜住 LLM 丢失 \textsc{move\_to} 的 \ 后产生的
+    裸下标/上标,避免 "Missing $" 级联吃掉参考文献。
+    """
+    out: list[str] = []
+    last = 0
+    for m in _INLINE_MATH_RE.finditer(s):
+        out.append(_SUBSUP_RE.sub(r"\\\1", s[last:m.start()]))
+        out.append(m.group(0))  # 数学区原样保留
+        last = m.end()
+    out.append(_SUBSUP_RE.sub(r"\\\1", s[last:]))
+    return "".join(out)
+
+
 def _join_most(translated: str, original: str) -> str:
     """括号不平衡时的部分回退:取译文中括号已平衡的最长前缀,后半接原文。
 
@@ -161,6 +181,14 @@ def fix_content(translated: str, original: str) -> str:
 
     # 1) 转义裸 %(LaTeX 注释符;中文语境的百分号必须写成 \%)
     fixed = re.sub(r"(?<!\\)%", r"\\%", fixed)
+
+    # 1b) 转义裸 _ 和 ^(未被 \ 前置的),跳过 $...$ 数学区。
+    #     LLM 常把原文 \textsc{move\_to} 的 \ 丢成 move_to,裸 _ 在文本模式触发
+    #     "! Missing $ inserted.",并级联:错误恢复把后续(含 \bibliography)卷入
+    #     math 恢复态 → \bibliography 不写 \bibdata → bibtex 不跑 → 参考文献整段
+    #     消失、正文格式错乱。per-chunk 补一道兜底转义。数学由 splitter 保护、
+    #     不出现在翻译段,但仍跳过 $...$ 以防 LLM 自带 $。
+    fixed = _escape_subsup(fixed)
 
     # 2) 修命令与花括号间的多余空格:\cmd { → \cmd{ ,  \ cmd{ → \cmd{
     #    只吃空格/制表符,不吃换行(\medskip\n\n{...} 的空行是段落分隔,须保留)
