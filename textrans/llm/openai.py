@@ -26,7 +26,13 @@ class OpenAICompatProvider(LLMProvider):
             # Kimi(aiping.cn)偶发 "EOF occurred in violation of protocol (_ssl.c:...)"
             # 多因连接池复用了服务端已关闭的陈旧 SSL 连接;transport retries 在连接
             # 建立阶段重试,短 keepalive_expiry 让空闲连接尽快被丢弃、不再复用陈旧连接。
-            transport = httpx.HTTPTransport(retries=3, keepalive_expiry=5.0)
+            # 注意 httpx 0.28 的参数归属:keepalive_expiry 是 httpx.Limits 的字段,
+            # 不能裸传给 httpx.Client 或 HTTPTransport;且用自定义 transport 时,
+            # limits 必须塞进 HTTPTransport 才对该连接池生效(传给 Client 会被忽略)。
+            # 早期写法把 keepalive_expiry 塞给 HTTPTransport,会抛 TypeError,导致
+            # 每段翻译全失败、回退原文(译文=英文)。
+            limits = httpx.Limits(keepalive_expiry=5.0)
+            transport = httpx.HTTPTransport(retries=3, limits=limits)
             http_client = httpx.Client(
                 transport=transport,
                 timeout=self.cfg.timeout,
